@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DICGC Insurance Risk Optimizer</title>
+<meta name="description" content="Check if your deposits across Indian banks exceed the DICGC insurance limit of 5 lakh and get optimization suggestions.">
+<style>
+/* ── Reset & Base ────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;
+  --fg:#1e293b;
+  --card:#ffffff;
+  --card-fg:#1e293b;
+  --primary:#0d9373;
+  --primary-fg:#ffffff;
+  --primary-10:rgba(13,147,115,.1);
+  --primary-20:rgba(13,147,115,.2);
+  --primary-05:rgba(13,147,115,.05);
+  --muted:#f1f5f9;
+  --muted-fg:#64748b;
+  --border:#e2e8f0;
+  --input-border:#e2e8f0;
+  --destructive:#dc2626;
+  --destructive-10:rgba(220,38,38,.1);
+  --destructive-15:rgba(220,38,38,.15);
+  --destructive-20:rgba(220,38,38,.2);
+  --success:#16a34a;
+  --success-10:rgba(22,163,74,.1);
+  --success-15:rgba(22,163,74,.15);
+  --success-20:rgba(22,163,74,.2);
+  --warning:#ca8a04;
+  --warning-15:rgba(202,138,4,.15);
+  --radius:0.75rem;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+html{font-family:var(--font);font-size:16px;line-height:1.5;color:var(--fg);background:var(--bg);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;background:var(--bg)}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+
+/* ── Layout ──────────────────────────────────── */
+.app{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+@media(min-width:640px){.app{padding:32px 24px 48px}}
+
+/* ── Info Callout ────────────────────────────── */
+.info-callout{display:flex;align-items:flex-start;gap:12px;border-radius:var(--radius);border:1px solid var(--primary-20);background:var(--primary-05);padding:16px;margin-bottom:24px}
+.info-callout svg{flex-shrink:0;margin-top:2px;color:var(--primary);width:16px;height:16px}
+.info-callout p{font-size:14px;color:var(--fg);opacity:.8;line-height:1.6}
+.info-callout strong{color:var(--fg);opacity:1}
+
+/* ── Card ────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .2s}
+.card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.card-body{padding:24px}
+.card-header{padding:24px 24px 12px;display:flex;align-items:center;gap:8px}
+.card-header h3{font-size:18px;font-weight:600;color:var(--fg)}
+.card-header svg{color:var(--primary);width:20px;height:20px}
+
+/* ── Bank Card Header ────────────────────────── */
+.bank-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.bank-label{font-size:14px;font-weight:600;color:var(--primary)}
+.btn-remove{background:none;border:none;color:var(--muted-fg);width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s}
+.btn-remove:hover{color:var(--destructive);background:var(--destructive-10)}
+.btn-remove svg{width:16px;height:16px}
+
+/* ── Form Elements ───────────────────────────── */
+.field{margin-bottom:16px}
+.field-label{display:block;font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.input{width:100%;height:40px;padding:0 12px;border:1px solid var(--input-border);border-radius:calc(var(--radius) - 2px);background:var(--bg);font-size:14px;color:var(--fg);outline:none;transition:border-color .15s,box-shadow .15s}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-10)}
+.input::placeholder{color:var(--muted-fg)}
+
+/* ── Bank Selector (Custom Dropdown) ─────────── */
+.bank-selector{position:relative}
+.bank-selector-trigger{width:100%;height:40px;padding:0 12px;border:1px solid var(--input-border);border-radius:calc(var(--radius) - 2px);background:var(--bg);font-size:14px;color:var(--fg);text-align:left;display:flex;align-items:center;justify-content:space-between;transition:border-color .15s,box-shadow .15s}
+.bank-selector-trigger:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-10)}
+.bank-selector-trigger svg{width:16px;height:16px;color:var(--muted-fg);opacity:.5;flex-shrink:0}
+.bank-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;display:none}
+.bank-dropdown.open{display:block}
+.bank-dropdown-search{padding:8px;border-bottom:1px solid var(--border)}
+.bank-dropdown-search .input{height:32px;font-size:13px}
+.bank-dropdown-list{max-height:240px;overflow-y:auto;padding:4px}
+.bank-dropdown-item{width:100%;text-align:left;font-size:14px;padding:8px 12px;border-radius:calc(var(--radius) - 4px);border:none;background:none;color:var(--fg);display:block;transition:background .1s}
+.bank-dropdown-item:hover{background:var(--muted)}
+.bank-dropdown-item.selected{background:var(--primary-10);color:var(--primary);font-weight:500}
+.bank-dropdown-empty{padding:8px 12px;font-size:13px;color:var(--muted-fg);text-align:center}
+
+/* ── Amount Grid ─────────────────────────────── */
+.amount-grid{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:640px){.amount-grid{grid-template-columns:1fr 1fr 1fr}}
+
+/* ── Bank Total Bar ──────────────────────────── */
+.bank-total{display:flex;align-items:center;justify-content:space-between;background:var(--muted);border-radius:8px;padding:10px 16px;margin-top:16px}
+.bank-total-label{font-size:14px;color:var(--muted-fg)}
+.bank-total-value{font-size:14px;font-weight:600;color:var(--fg)}
+
+/* ── Buttons ─────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;border-radius:calc(var(--radius) - 2px);border:none;padding:0 16px;height:40px;transition:background .15s,box-shadow .15s,opacity .15s}
+.btn svg{width:16px;height:16px}
+.btn-outline{background:var(--bg);border:1px solid var(--border);color:var(--fg)}
+.btn-outline:hover{background:var(--muted)}
+.btn-primary{background:var(--primary);color:var(--primary-fg);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.btn-primary:hover{opacity:.9}
+.btn-lg{height:44px;padding:0 24px;font-size:15px}
+
+/* ── Actions Row ─────────────────────────────── */
+.actions{display:flex;flex-direction:column;gap:12px;margin-top:24px}
+@media(min-width:640px){.actions{flex-direction:row;align-items:center;justify-content:space-between}}
+
+/* ── Errors ──────────────────────────────────── */
+.errors{margin-top:24px;border-radius:var(--radius);border:1px solid var(--destructive-20);background:var(--destructive-10);padding:16px;animation:fadeIn .3s ease}
+.errors-title{font-size:14px;font-weight:500;color:var(--destructive);margin-bottom:8px}
+.errors ul{list-style:none}
+.errors li{font-size:14px;color:var(--destructive);opacity:.8;display:flex;align-items:flex-start;gap:8px;margin-bottom:4px}
+.errors li::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--destructive);opacity:.6;margin-top:8px;flex-shrink:0}
+
+/* ── Separator ───────────────────────────────── */
+.separator{border:none;border-top:1px solid var(--border);margin:0 0 32px}
+
+/* ── Results Heading ─────────────────────────── */
+.results-heading{font-size:18px;font-weight:600;color:var(--fg);margin-bottom:24px}
+
+/* ── Summary Cards ───────────────────────────── */
+.summary-grid{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:640px){.summary-grid{grid-template-columns:1fr 1fr 1fr}}
+.summary-card .card-body{padding:24px}
+.summary-icon-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.summary-icon{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.summary-icon svg{width:20px;height:20px}
+.summary-icon.primary{background:var(--primary-10)}
+.summary-icon.primary svg{color:var(--primary)}
+.summary-icon.success{background:var(--success-10)}
+.summary-icon.success svg{color:var(--success)}
+.summary-icon.danger{background:var(--destructive-10)}
+.summary-icon.danger svg{color:var(--destructive)}
+.summary-icon.muted-icon{background:var(--muted)}
+.summary-icon.muted-icon svg{color:var(--muted-fg)}
+.summary-label{font-size:14px;color:var(--muted-fg)}
+.summary-value{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--fg)}
+.summary-sub{font-size:12px;margin-top:4px}
+.summary-sub.text-success{color:var(--success)}
+.summary-sub.text-destructive{color:var(--destructive)}
+.summary-sub.text-muted{color:var(--muted-fg)}
+
+/* ── Risk Table ──────────────────────────────── */
+.risk-table{width:100%;border-collapse:collapse;font-size:14px}
+.risk-table th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-fg);padding:8px 12px;border-bottom:1px solid var(--border)}
+.risk-table th.right{text-align:right}
+.risk-table td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.risk-table td.right{text-align:right}
+.risk-table td.mono{font-family:var(--font-mono);font-size:13px}
+.risk-table td.text-success{color:var(--success)}
+.risk-table td.text-destructive{color:var(--destructive)}
+.risk-table td.text-muted{color:var(--muted-fg)}
+.risk-table tr:last-child td{border-bottom:none}
+.table-wrap{overflow-x:auto;margin:0 -24px;padding:0 24px}
+
+/* ── Badge ───────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.badge svg{width:12px;height:12px}
+.badge-safe{background:var(--success-15);color:var(--success);border:1px solid var(--success-20)}
+.badge-risk{background:var(--destructive-15);color:var(--destructive);border:1px solid var(--destructive-20)}
+
+/* ── All-Safe Card ───────────────────────────── */
+.all-safe{border-color:var(--success-20);background:rgba(22,163,74,.05)}
+.all-safe .card-body{display:flex;align-items:center;gap:12px}
+.all-safe .summary-icon{flex-shrink:0}
+.all-safe p:first-of-type{font-weight:600;color:var(--fg);font-size:14px}
+.all-safe p:last-of-type{font-size:14px;color:var(--muted-fg)}
+
+/* ── Suggestion Items ────────────────────────── */
+.suggestion-item{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--border);background:rgba(241,245,249,.3);border-radius:8px;padding:16px;margin-bottom:12px}
+.suggestion-icon{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--warning-15);margin-top:2px}
+.suggestion-icon svg{width:14px;height:14px;color:var(--warning)}
+.suggestion-msg{font-size:14px;line-height:1.6;color:var(--fg)}
+.suggestion-benefit{font-size:12px;color:var(--muted-fg);margin-top:4px}
+.suggestion-benefit span{font-weight:500;color:var(--primary)}
+
+/* ── Disclaimer ──────────────────────────────── */
+.disclaimer{margin-top:32px;text-align:center;font-size:12px;color:var(--muted-fg);line-height:1.6}
+
+/* ── Animations ──────────────────────────────── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .35s ease both}
+
+/* ── Space between bank cards ────────────────── */
+.bank-cards>*+*{margin-top:16px}
+.results-section>*+*{margin-top:24px}
+
+/* ── Overlay to close dropdown ───────────────── */
+.dropdown-overlay{position:fixed;inset:0;z-index:40}
+</style>
+</head>
+<body>
+
+<main class="app" id="app">
+  <!-- Info Callout -->
+  <div class="info-callout">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <p>DICGC insures up to <strong>&#8377;5,00,000</strong> per depositor per bank, covering savings, fixed deposits, current accounts, and recurring deposits.</p>
+  </div>
+
+  <!-- Bank Cards Container -->
+  <div class="bank-cards" id="bankCards"></div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn btn-outline" id="addBankBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Bank
+    </button>
+    <button class="btn btn-primary btn-lg" id="analyzeBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      Check My DICGC Risk
+    </button>
+  </div>
+
+  <!-- Errors -->
+  <div class="errors" id="errorsBox" style="display:none">
+    <p class="errors-title">Please fix the following:</p>
+    <ul id="errorsList"></ul>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none"></div>
+</main>
+
+<script>
+/* ── Bank Data ───────────────────────────────── */
+var DICGC_LIMIT = 500000;
+var banksData = [
+  {name:"SBI",savingsRate:2.7,fdRate:6.8,rdRate:6.5},
+  {name:"HDFC Bank",savingsRate:3.0,fdRate:7.1,rdRate:7.0},
+  {name:"ICICI Bank",savingsRate:3.0,fdRate:7.0,rdRate:6.9},
+  {name:"Axis Bank",savingsRate:3.5,fdRate:7.2,rdRate:7.1},
+  {name:"Kotak Mahindra Bank",savingsRate:3.5,fdRate:7.3,rdRate:7.2},
+  {name:"IDFC First Bank",savingsRate:7.0,fdRate:8.0,rdRate:7.75},
+  {name:"AU Small Finance Bank",savingsRate:7.25,fdRate:8.5,rdRate:8.25},
+  {name:"Punjab National Bank",savingsRate:2.7,fdRate:6.8,rdRate:6.5},
+  {name:"Bank of Baroda",savingsRate:2.75,fdRate:6.85,rdRate:6.5},
+  {name:"Canara Bank",savingsRate:2.9,fdRate:6.7,rdRate:6.5},
+  {name:"Union Bank of India",savingsRate:2.75,fdRate:6.7,rdRate:6.5},
+  {name:"Indian Bank",savingsRate:2.75,fdRate:6.75,rdRate:6.5},
+  {name:"Bank of India",savingsRate:2.75,fdRate:6.8,rdRate:6.5},
+  {name:"Central Bank of India",savingsRate:2.75,fdRate:6.7,rdRate:6.5},
+  {name:"Indian Overseas Bank",savingsRate:2.7,fdRate:6.6,rdRate:6.3},
+  {name:"UCO Bank",savingsRate:2.75,fdRate:6.6,rdRate:6.3},
+  {name:"Punjab & Sind Bank",savingsRate:2.7,fdRate:6.5,rdRate:6.25},
+  {name:"Yes Bank",savingsRate:4.0,fdRate:7.25,rdRate:7.0},
+  {name:"IndusInd Bank",savingsRate:4.0,fdRate:7.5,rdRate:7.25},
+  {name:"Federal Bank",savingsRate:3.05,fdRate:7.1,rdRate:7.0},
+  {name:"South Indian Bank",savingsRate:2.75,fdRate:7.0,rdRate:6.75},
+  {name:"RBL Bank",savingsRate:5.5,fdRate:7.6,rdRate:7.3},
+  {name:"Bandhan Bank",savingsRate:5.0,fdRate:7.65,rdRate:7.4},
+  {name:"IDBI Bank",savingsRate:3.0,fdRate:6.75,rdRate:6.5},
+  {name:"DCB Bank",savingsRate:4.0,fdRate:7.5,rdRate:7.2},
+  {name:"Karur Vysya Bank",savingsRate:3.25,fdRate:7.1,rdRate:6.9},
+  {name:"City Union Bank",savingsRate:2.75,fdRate:7.0,rdRate:6.75},
+  {name:"Tamilnad Mercantile Bank",savingsRate:3.0,fdRate:7.15,rdRate:7.0},
+  {name:"Ujjivan Small Finance Bank",savingsRate:7.0,fdRate:8.25,rdRate:8.0},
+  {name:"Equitas Small Finance Bank",savingsRate:7.0,fdRate:8.25,rdRate:8.0},
+  {name:"Jana Small Finance Bank",savingsRate:5.5,fdRate:8.0,rdRate:7.75},
+  {name:"Suryoday Small Finance Bank",savingsRate:7.0,fdRate:8.6,rdRate:8.25},
+  {name:"Utkarsh Small Finance Bank",savingsRate:5.5,fdRate:8.25,rdRate:8.0},
+  {name:"ESAF Small Finance Bank",savingsRate:5.0,fdRate:8.25,rdRate:8.0},
+  {name:"North East Small Finance Bank",savingsRate:6.0,fdRate:8.0,rdRate:7.75},
+  {name:"Fincare Small Finance Bank",savingsRate:6.0,fdRate:8.11,rdRate:7.85},
+  {name:"Unity Small Finance Bank",savingsRate:5.5,fdRate:8.5,rdRate:8.25},
+  {name:"Shivalik Small Finance Bank",savingsRate:5.0,fdRate:7.75,rdRate:7.5}
+];
+
+/* ── State ───────────────────────────────────── */
+var idCounter = 0;
+function uid() { return "b" + (++idCounter); }
+var userBanks = [{ id: uid(), bankName: banksData[0].name, savings: 0, fd: 0, rd: 0 }];
+
+/* ── Helpers ─────────────────────────────────── */
+function formatCurrency(n) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+}
+
+/* ── SVG Icons (inline strings) ──────────────── */
+var iconTrash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+var iconSearch = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+var iconShieldCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>';
+var iconShieldAlert = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+var iconWallet = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>';
+var iconLightbulb = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>';
+var iconArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+var iconTrendingUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
+
+/* ── Render Bank Cards ───────────────────────── */
+function renderBanks() {
+  var container = document.getElementById("bankCards");
+  container.innerHTML = "";
+
+  userBanks.forEach(function(bank, idx) {
+    var div = document.createElement("div");
+    div.className = "card fade-in";
+    var total = bank.savings + bank.fd + bank.rd;
+
+    div.innerHTML =
+      '<div class="card-body">' +
+        '<div class="bank-header">' +
+          '<span class="bank-label">Bank ' + (idx + 1) + '</span>' +
+          (userBanks.length > 1
+            ? '<button class="btn-remove" data-remove="' + bank.id + '" aria-label="Remove bank ' + (idx + 1) + '">' + iconTrash + '</button>'
+            : '') +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label">Bank Name</label>' +
+          '<div class="bank-selector" data-id="' + bank.id + '">' +
+            '<button class="bank-selector-trigger" type="button" data-toggle="' + bank.id + '">' +
+              '<span>' + escHtml(bank.bankName || "Select bank...") + '</span>' +
+              iconSearch +
+            '</button>' +
+            '<div class="bank-dropdown" id="dd-' + bank.id + '">' +
+              '<div class="bank-dropdown-search">' +
+                '<input class="input" placeholder="Search banks..." data-search="' + bank.id + '">' +
+              '</div>' +
+              '<div class="bank-dropdown-list" data-list="' + bank.id + '"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="amount-grid">' +
+          '<div class="field">' +
+            '<label class="field-label" for="sav-' + bank.id + '">Savings (&#8377;)</label>' +
+            '<input class="input" type="number" min="0" placeholder="0" id="sav-' + bank.id + '" data-field="savings" data-id="' + bank.id + '" value="' + (bank.savings || "") + '">' +
+          '</div>' +
+          '<div class="field">' +
+            '<label class="field-label" for="fd-' + bank.id + '">Fixed Deposit (&#8377;)</label>' +
+            '<input class="input" type="number" min="0" placeholder="0" id="fd-' + bank.id + '" data-field="fd" data-id="' + bank.id + '" value="' + (bank.fd || "") + '">' +
+          '</div>' +
+          '<div class="field">' +
+            '<label class="field-label" for="rd-' + bank.id + '">Recurring Deposit (&#8377;)</label>' +
+            '<input class="input" type="number" min="0" placeholder="0" id="rd-' + bank.id + '" data-field="rd" data-id="' + bank.id + '" value="' + (bank.rd || "") + '">' +
+          '</div>' +
+        '</div>' +
+        '<div class="bank-total">' +
+          '<span class="bank-total-label">Total at this bank</span>' +
+          '<span class="bank-total-value">' + formatCurrency(total) + '</span>' +
+        '</div>' +
+      '</div>';
+
+    container.appendChild(div);
+    populateDropdown(bank.id, "", bank.bankName);
+  });
+
+  bindBankEvents();
+}
+
+function escHtml(s) {
+  var d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function populateDropdown(bankId, query, selected) {
+  var listEl = document.querySelector('[data-list="' + bankId + '"]');
+  if (!listEl) return;
+  var q = (query || "").toLowerCase();
+  var filtered = banksData.filter(function(b) {
+    return !q || b.name.toLowerCase().indexOf(q) > -1;
+  });
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="bank-dropdown-empty">No bank found.</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(function(b) {
+    var cls = "bank-dropdown-item" + (b.name === selected ? " selected" : "");
+    return '<button class="' + cls + '" data-select="' + bankId + '" data-bank="' + escHtml(b.name) + '">' + escHtml(b.name) + '</button>';
+  }).join("");
+}
+
+/* ── Event Binding ───────────────────────────── */
+function bindBankEvents() {
+  // Remove buttons
+  document.querySelectorAll("[data-remove]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var id = btn.getAttribute("data-remove");
+      userBanks = userBanks.filter(function(b) { return b.id !== id; });
+      clearResults();
+      renderBanks();
+    });
+  });
+
+  // Amount inputs
+  document.querySelectorAll("[data-field]").forEach(function(inp) {
+    inp.addEventListener("input", function() {
+      var id = inp.getAttribute("data-id");
+      var field = inp.getAttribute("data-field");
+      var val = Math.max(0, Number(inp.value) || 0);
+      var bank = userBanks.find(function(b) { return b.id === id; });
+      if (bank) {
+        bank[field] = val;
+        clearResults();
+        // Update total
+        var card = inp.closest(".card");
+        if (card) {
+          var totalEl = card.querySelector(".bank-total-value");
+          if (totalEl) totalEl.textContent = formatCurrency(bank.savings + bank.fd + bank.rd);
+        }
+      }
+    });
+  });
+
+  // Dropdown triggers
+  document.querySelectorAll("[data-toggle]").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var id = btn.getAttribute("data-toggle");
+      closeAllDropdowns();
+      var dd = document.getElementById("dd-" + id);
+      if (dd) {
+        dd.classList.add("open");
+        var searchInput = dd.querySelector("input");
+        if (searchInput) { searchInput.value = ""; searchInput.focus(); }
+        var bank = userBanks.find(function(b) { return b.id === id; });
+        populateDropdown(id, "", bank ? bank.bankName : "");
+        addOverlay(id);
+      }
+    });
+  });
+
+  // Dropdown search
+  document.querySelectorAll("[data-search]").forEach(function(inp) {
+    inp.addEventListener("input", function() {
+      var id = inp.getAttribute("data-search");
+      var bank = userBanks.find(function(b) { return b.id === id; });
+      populateDropdown(id, inp.value, bank ? bank.bankName : "");
+    });
+    inp.addEventListener("click", function(e) { e.stopPropagation(); });
+  });
+
+  // Dropdown item selection (delegated)
+  document.querySelectorAll(".bank-dropdown-list").forEach(function(list) {
+    list.addEventListener("click", function(e) {
+      var btn = e.target.closest("[data-select]");
+      if (!btn) return;
+      e.stopPropagation();
+      var id = btn.getAttribute("data-select");
+      var name = btn.getAttribute("data-bank");
+      var bank = userBanks.find(function(b) { return b.id === id; });
+      if (bank) {
+        bank.bankName = name;
+        clearResults();
+      }
+      closeAllDropdowns();
+      renderBanks();
+    });
+  });
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll(".bank-dropdown.open").forEach(function(dd) {
+    dd.classList.remove("open");
+  });
+  var overlay = document.getElementById("ddOverlay");
+  if (overlay) overlay.remove();
+}
+
+function addOverlay(id) {
+  var existing = document.getElementById("ddOverlay");
+  if (existing) existing.remove();
+  var ov = document.createElement("div");
+  ov.className = "dropdown-overlay";
+  ov.id = "ddOverlay";
+  ov.addEventListener("click", function() { closeAllDropdowns(); });
+  document.body.appendChild(ov);
+}
+
+/* ── Clear Results ───────────────────────────── */
+function clearResults() {
+  document.getElementById("resultsSection").style.display = "none";
+  document.getElementById("errorsBox").style.display = "none";
+}
+
+/* ── Analysis Logic ──────────────────────────── */
+function analyzeRisk(banks) {
+  return banks.map(function(bank) {
+    var total = bank.savings + bank.fd + bank.rd;
+    var insured = Math.min(total, DICGC_LIMIT);
+    var uninsured = Math.max(total - DICGC_LIMIT, 0);
+    return { bankName: bank.bankName, total: total, insured: insured, uninsured: uninsured, status: uninsured > 0 ? "at-risk" : "safe" };
+  });
+}
+
+function getPortfolioSummary(results) {
+  var s = { totalDeposits: 0, totalInsured: 0, totalUninsured: 0 };
+  results.forEach(function(r) { s.totalDeposits += r.total; s.totalInsured += r.insured; s.totalUninsured += r.uninsured; });
+  return s;
+}
+
+function getOptimizationSuggestions(banks, results) {
+  var suggestions = [];
+  var sortedByFd = banksData.slice().sort(function(a, b) { return b.fdRate - a.fdRate; });
+  var sortedBySavings = banksData.slice().sort(function(a, b) { return b.savingsRate - a.savingsRate; });
+  var userBankNames = banks.map(function(b) { return b.bankName; });
+
+  results.forEach(function(result) {
+    if (result.uninsured <= 0) return;
+    var remaining = result.uninsured;
+
+    sortedByFd.forEach(function(target) {
+      if (remaining <= 0 || target.name === result.bankName) return;
+      var existing = results.find(function(r) { return r.bankName === target.name; });
+      var existingTotal = existing ? existing.total : 0;
+      var room = DICGC_LIMIT - existingTotal;
+      if (room <= 0) return;
+      var moveAmt = Math.min(remaining, room);
+      remaining -= moveAmt;
+      suggestions.push({
+        message: "Move " + formatCurrency(moveAmt) + " from " + result.bankName + " to " + target.name + " to maximize insurance coverage and earn " + target.fdRate + "% FD rate.",
+        fromBank: result.bankName, toBank: target.name, amount: moveAmt,
+        benefit: target.fdRate + "% FD rate"
+      });
+    });
+
+    if (remaining > 0) {
+      sortedBySavings.forEach(function(target) {
+        if (remaining <= 0) return;
+        if (userBankNames.indexOf(target.name) > -1 || target.name === result.bankName) return;
+        var moveAmt = Math.min(remaining, DICGC_LIMIT);
+        remaining -= moveAmt;
+        suggestions.push({
+          message: "Open a new account at " + target.name + " and move " + formatCurrency(moveAmt) + " from " + result.bankName + " to get " + target.savingsRate + "% savings rate with full insurance.",
+          fromBank: result.bankName, toBank: target.name, amount: moveAmt,
+          benefit: target.savingsRate + "% savings rate"
+        });
+      });
+    }
+  });
+
+  return suggestions;
+}
+
+/* ── Render Results ──────────────────────────── */
+function renderResults(results, summary, suggestions) {
+  var section = document.getElementById("resultsSection");
+  var insuredPct = summary.totalDeposits > 0 ? Math.round((summary.totalInsured / summary.totalDeposits) * 100) : 0;
+
+  var html = '<hr class="separator">' +
+    '<h2 class="results-heading">Analysis Results</h2>' +
+    '<div class="results-section">';
+
+  /* Summary Cards */
+  html += '<div class="summary-grid">';
+  // Total
+  html += '<div class="card summary-card fade-in"><div class="card-body">' +
+    '<div class="summary-icon-row"><div class="summary-icon primary">' + iconWallet + '</div><span class="summary-label">Total Deposits</span></div>' +
+    '<div class="summary-value">' + formatCurrency(summary.totalDeposits) + '</div>' +
+    '</div></div>';
+  // Insured
+  html += '<div class="card summary-card fade-in" style="animation-delay:.1s"><div class="card-body">' +
+    '<div class="summary-icon-row"><div class="summary-icon success">' + iconShieldCheck + '</div><span class="summary-label">Insured Amount</span></div>' +
+    '<div class="summary-value">' + formatCurrency(summary.totalInsured) + '</div>' +
+    '<div class="summary-sub text-success">' + insuredPct + '% covered</div>' +
+    '</div></div>';
+  // Uninsured
+  var unColor = summary.totalUninsured > 0 ? "danger" : "muted-icon";
+  var unSubCls = summary.totalUninsured > 0 ? "text-destructive" : "text-muted";
+  var unSubTxt = summary.totalUninsured > 0 ? "At risk" : "No risk";
+  html += '<div class="card summary-card fade-in" style="animation-delay:.2s"><div class="card-body">' +
+    '<div class="summary-icon-row"><div class="summary-icon ' + unColor + '">' + iconShieldAlert + '</div><span class="summary-label">Uninsured Amount</span></div>' +
+    '<div class="summary-value">' + formatCurrency(summary.totalUninsured) + '</div>' +
+    '<div class="summary-sub ' + unSubCls + '">' + unSubTxt + '</div>' +
+    '</div></div>';
+  html += '</div>';
+
+  /* Risk Table */
+  html += '<div class="card fade-in" style="animation-delay:.3s">' +
+    '<div class="card-header">' + iconShieldCheck + '<h3>Risk Analysis per Bank</h3></div>' +
+    '<div class="card-body" style="padding-top:0"><div class="table-wrap"><table class="risk-table">' +
+    '<thead><tr><th>Bank</th><th class="right">Total</th><th class="right">Insured</th><th class="right">Uninsured</th><th class="right">Status</th></tr></thead><tbody>';
+
+  results.forEach(function(r) {
+    var unCls = r.uninsured > 0 ? "right mono text-destructive" : "right mono text-muted";
+    var badge = r.status === "safe"
+      ? '<span class="badge badge-safe">' + iconShieldCheck + ' Fully Insured</span>'
+      : '<span class="badge badge-risk">' + iconShieldAlert + ' At Risk</span>';
+    html += '<tr>' +
+      '<td style="font-weight:500">' + escHtml(r.bankName) + '</td>' +
+      '<td class="right mono">' + formatCurrency(r.total) + '</td>' +
+      '<td class="right mono text-success">' + formatCurrency(r.insured) + '</td>' +
+      '<td class="' + unCls + '">' + formatCurrency(r.uninsured) + '</td>' +
+      '<td class="right">' + badge + '</td></tr>';
+  });
+
+  html += '</tbody></table></div></div></div>';
+
+  /* Suggestions */
+  if (suggestions.length === 0) {
+    html += '<div class="card all-safe fade-in" style="animation-delay:.4s"><div class="card-body">' +
+      '<div class="summary-icon success">' + iconTrendingUp + '</div>' +
+      '<div><p>All deposits are fully insured</p><p>Your deposits are within the DICGC limit at every bank. No action needed.</p></div>' +
+      '</div></div>';
+  } else {
+    html += '<div class="card fade-in" style="animation-delay:.4s">' +
+      '<div class="card-header">' + iconLightbulb + '<h3>Optimization Suggestions</h3></div>' +
+      '<div class="card-body" style="padding-top:0">';
+    suggestions.forEach(function(s, i) {
+      html += '<div class="suggestion-item fade-in" style="animation-delay:' + (.5 + i * .12) + 's">' +
+        '<div class="suggestion-icon">' + iconArrow + '</div>' +
+        '<div><div class="suggestion-msg">' + escHtml(s.message) + '</div>' +
+        '<div class="suggestion-benefit">Potential benefit: <span>' + escHtml(s.benefit) + '</span></div></div></div>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+
+  /* Disclaimer */
+  html += '<p class="disclaimer">This tool is for informational purposes only. Please consult your bank or financial advisor for accurate insurance coverage details.</p>';
+
+  section.innerHTML = html;
+  section.style.display = "block";
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ── Main Analyze Handler ────────────────────── */
+document.getElementById("analyzeBtn").addEventListener("click", function() {
+  var errors = [];
+  userBanks.forEach(function(bank, i) {
+    if (!bank.bankName) errors.push("Bank " + (i + 1) + ": Please select a bank name.");
+    if (bank.savings < 0) errors.push("Bank " + (i + 1) + ": Savings amount cannot be negative.");
+    if (bank.fd < 0) errors.push("Bank " + (i + 1) + ": FD amount cannot be negative.");
+    if (bank.rd < 0) errors.push("Bank " + (i + 1) + ": RD amount cannot be negative.");
+    if (bank.savings === 0 && bank.fd === 0 && bank.rd === 0) errors.push("Bank " + (i + 1) + ": Please enter at least one deposit amount.");
+  });
+
+  var errBox = document.getElementById("errorsBox");
+  var errList = document.getElementById("errorsList");
+
+  if (errors.length > 0) {
+    errList.innerHTML = errors.map(function(e) { return "<li>" + escHtml(e) + "</li>"; }).join("");
+    errBox.style.display = "block";
+    document.getElementById("resultsSection").style.display = "none";
+    return;
+  }
+
+  errBox.style.display = "none";
+  var results = analyzeRisk(userBanks);
+  var summary = getPortfolioSummary(results);
+  var suggestions = getOptimizationSuggestions(userBanks, results);
+  renderResults(results, summary, suggestions);
+});
+
+/* ── Add Bank ────────────────────────────────── */
+document.getElementById("addBankBtn").addEventListener("click", function() {
+  userBanks.push({ id: uid(), bankName: banksData[0].name, savings: 0, fd: 0, rd: 0 });
+  clearResults();
+  renderBanks();
+});
+
+/* ── Initial Render ──────────────────────────── */
+renderBanks();
+</script>
+</body>
+</html>
